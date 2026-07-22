@@ -1,0 +1,434 @@
+import { useState, useEffect } from 'react';
+
+const Calendar = ({ onNavigateToDashboard }) => {
+  // Mengambil data tasks yang diinput dari dashboard secara real-time
+  const [tasks, setTasks] = useState(() => JSON.parse(localStorage.getItem('tasks')) || []);
+  const [currentDate, setCurrentDate] = useState(new Date(2026, 6, 15)); // Fokus Juli 2026 sesuai database harianmu
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    setIsLoaded(true);
+    // Sync data kembali jika ada perubahan eksternal
+    const handleStorageChange = () => {
+      setTasks(JSON.parse(localStorage.getItem('tasks')) || []);
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+  const daysInMonth = (month, year) => new Date(year, month + 1, 0).getDate();
+  const startDayOfMonth = (month, year) => new Date(year, month, 1).getDay();
+
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+
+  const totalDays = daysInMonth(month, year);
+  const startDay = startDayOfMonth(month, year);
+
+  const monthNames = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+  ];
+
+  const handlePrevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
+  const handleNextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
+  const handleCurrentMonth = () => setCurrentDate(new Date(2026, 6, 15));
+
+  // Fungsi pembantu untuk mencocokkan tugas berdasarkan tanggal kalender
+  const getTasksForDate = (day) => {
+    const formattedDay = day < 10 ? `0${day}` : day;
+    const formattedMonth = (month + 1) < 10 ? `0${month + 1}` : month + 1;
+    const targetDateStr = `${year}-${formattedMonth}-${formattedDay}`;
+
+    return tasks.filter(task => {
+      if (!task.time) return false;
+      return task.time.substring(0, 10) === targetDateStr;
+    });
+  };
+
+  // Fungsi pemberi warna badge mini tugas di dalam kotak kalender harian
+  const getBadgeStyle = (category) => {
+    switch (category) {
+      case 'Kuliah':
+        return { backgroundColor: '#E0F2FE', color: '#0369A1', borderLeft: '3px solid #3B82F6' };
+      case 'Kerja':
+        return { backgroundColor: '#FEF3C7', color: '#B45309', borderLeft: '3px solid #F59E0B' };
+      case 'Organisasi':
+        return { backgroundColor: '#F3E8FF', color: '#6B21A8', borderLeft: '3px solid #A855F7' };
+      case 'Selesai':
+        return { backgroundColor: '#D1FAE5', color: '#065F46', borderLeft: '3px solid #10B981', textDecoration: 'line-through', opacity: 0.7 };
+      default:
+        return { backgroundColor: '#F1F5F9', color: '#475569' };
+    }
+  };
+
+  const renderCalendarCells = () => {
+    const cells = [];
+    
+    // Isi slot kosong sebelum tanggal 1 awal bulan
+    for (let i = 0; i < startDay; i++) {
+      cells.push(<div key={`empty-${i}`} style={styles.calendarCellEmpty} />);
+    }
+
+    // Isi baris kotak tanggal aktif harian
+    for (let day = 1; day <= totalDays; day++) {
+      const isToday = day === 15 && month === 6 && year === 2026;
+      const dayTasks = getTasksForDate(day);
+
+      cells.push(
+        <div 
+          key={`day-${day}`} 
+          style={{
+            ...styles.calendarCellActive,
+            borderColor: isToday ? '#3B82F6' : '#EEF2F6',
+            backgroundColor: isToday ? '#F8FAFC' : '#FFFFFF',
+            boxShadow: isToday ? 'inset 0 0 0 2px #3B82F6' : 'none'
+          }}
+        >
+          <div style={{
+            ...styles.cellDayNumber,
+            color: isToday ? '#3B82F6' : '#1E293B',
+            fontWeight: isToday ? '900' : '700'
+          }}>
+            {day} {isToday && <span style={styles.todayIndicator}>Hari Ini</span>}
+          </div>
+
+          {/* MENAMPILKAN DAFTAR UTUH NAMA AGENDA YANG KAMU INPUT */}
+          <div style={styles.cellTaskContainer}>
+            {dayTasks.map(task => (
+              <div 
+                key={task.id} 
+                style={{ ...styles.taskMiniBadge, ...getBadgeStyle(task.category) }}
+                title={`${task.title} (${task.category})`}
+              >
+                <div style={styles.taskMiniTitle}>{task.title}</div>
+                <div style={styles.taskMiniTime}>{task.time.substring(task.time.indexOf('('))}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    return cells;
+  };
+
+  return (
+    <div style={styles.calendarLayout}>
+      
+      {/* SIDEBAR LEFT */}
+      <aside style={styles.sidebar}>
+        <div style={styles.sidebarHeader}>
+          <div style={styles.sidebarLogoIcon}>T</div>
+          <div>
+            <h2 style={styles.sidebarLogo}>TimeDD</h2>
+            <span style={styles.sidebarSublogo}>Calendar Panel</span>
+          </div>
+        </div>
+        <nav style={styles.sidebarNav}>
+          <div onClick={onNavigateToDashboard} style={styles.sidebarMenu}>📊 Ringkasan Panel</div>
+          <div style={{ ...styles.sidebarMenu, backgroundColor: 'rgba(255,255,255,0.15)', color: '#FFFFFF' }}>📅 Kalender Jadwal</div>
+        </nav>
+        <div style={styles.sidebarFooter}>
+          <div style={styles.sidebarVersion}>v1.0.0 © 2026</div>
+        </div>
+      </aside>
+
+      {/* MAIN CALENDAR CONTENT */}
+      <main style={styles.mainContent}>
+        <header style={{
+          ...styles.mainHeaderCard,
+          opacity: isLoaded ? 1 : 0,
+          transform: isLoaded ? 'translateY(0)' : 'translateY(-15px)',
+          transition: 'all 0.6s cubic-bezier(0.16, 1, 0.3, 1)'
+        }}>
+          <div>
+            <h1 style={styles.headerTitle}>Kalender Akademik & Kesibukan</h1>
+            <p style={styles.headerSubtitle}>Gunakan tombol kontrol navigasi bulan untuk memantau plot sebaran jadwal kegiatanmu.</p>
+          </div>
+          <button onClick={onNavigateToDashboard} style={styles.btnBack}>
+            ← Kembali ke Dashboard
+          </button>
+        </header>
+
+        {/* CALENDAR BOARD HOUSING */}
+        <section style={{
+          ...styles.calendarCardBoard,
+          opacity: isLoaded ? 1 : 0,
+          transform: isLoaded ? 'translateY(0)' : 'translateY(25px)',
+          transition: 'all 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.05s'
+        }}>
+          
+          {/* Kalender Header Navigator */}
+          <div style={styles.calendarControlHeader}>
+            <div style={styles.btnControlGroup}>
+              <button onClick={handlePrevMonth} style={styles.navArrowBtn}>←</button>
+              <h2 style={styles.monthDisplayLabel}>{monthNames[month]} {year}</h2>
+              <button onClick={handleNextMonth} style={styles.navArrowBtn}>→</button>
+            </div>
+            <button onClick={handleCurrentMonth} style={styles.btnTodayBack}>Bulan Ini</button>
+          </div>
+
+          {/* Nama-Nama Hari Baris */}
+          <div style={styles.daysOfWeekGrid}>
+            <div style={{ ...styles.dayWeekLabel, color: '#EF4444' }}>Min</div>
+            <div style={styles.dayWeekLabel}>Sen</div>
+            <div style={styles.dayWeekLabel}>Sel</div>
+            <div style={styles.dayWeekLabel}>Rab</div>
+            <div style={styles.dayWeekLabel}>Kam</div>
+            <div style={styles.dayWeekLabel}>Jum</div>
+            <div style={styles.dayWeekLabel}>Sab</div>
+          </div>
+
+          {/* Grid Sel Tanggal Utama */}
+          <div style={styles.calendarGridCells}>
+            {renderCalendarCells()}
+          </div>
+
+        </section>
+      </main>
+    </div>
+  );
+};
+
+// Objek Stylesheet Vertikal Sempurna
+const styles = {
+  calendarLayout: {
+    display: 'flex',
+    background: 'linear-gradient(135deg, #EBF3FF 0%, #F5F9FF 100%)',
+    minHeight: '100vh',
+    fontFamily: '"Inter", sans-serif'
+  },
+  sidebar: {
+    width: '280px',
+    backgroundColor: '#1E3A8A',
+    color: 'white',
+    padding: '2.5rem 1.5rem 1.5rem 1.5rem',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2.5rem',
+    boxShadow: '4px 0 20px rgba(30, 58, 138, 0.1)'
+  },
+  sidebarHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem'
+  },
+  sidebarLogoIcon: {
+    width: '35px',
+    height: '35px',
+    backgroundColor: 'white',
+    color: '#1E3A8A',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: '10px',
+    fontWeight: '900',
+    fontSize: '1.25rem'
+  },
+  sidebarLogo: {
+    fontSize: '1.35rem',
+    fontWeight: '800',
+    margin: 0,
+    letterSpacing: '0.5px'
+  },
+  sidebarSublogo: {
+    fontSize: '0.75rem',
+    color: '#93C5FD',
+    display: 'block',
+    marginTop: '1px'
+  },
+  sidebarNav: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.6rem',
+    flexGrow: 1
+  },
+  sidebarMenu: {
+    padding: '0.85rem 1.25rem',
+    borderRadius: '12px',
+    fontWeight: '600',
+    fontSize: '0.95rem',
+    cursor: 'pointer',
+    color: '#93C5FD',
+    transition: 'all 0.3s ease'
+  },
+  sidebarFooter: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '1rem'
+  },
+  sidebarVersion: {
+    fontSize: '0.8rem',
+    opacity: 0.4,
+    textAlign: 'center'
+  },
+  mainContent: {
+    flexGrow: 1,
+    padding: '3rem 3.5rem',
+    overflowY: 'auto'
+  },
+  mainHeaderCard: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: '2.25rem 2.5rem',
+    borderRadius: '24px',
+    boxShadow: '0 10px 30px rgba(30, 58, 138, 0.04)',
+    border: '1px solid rgba(226, 232, 240, 0.8)',
+    marginBottom: '2.5rem'
+  },
+  headerTitle: {
+    fontSize: '2.25rem',
+    fontWeight: '900',
+    color: '#0F172A',
+    margin: 0,
+    letterSpacing: '-0.5px'
+  },
+  headerSubtitle: {
+    color: '#64748B',
+    marginTop: '0.5rem',
+    fontSize: '0.95rem',
+    fontWeight: '500'
+  },
+  btnBack: {
+    backgroundColor: '#FFFFFF',
+    color: '#1E293B',
+    border: '1px solid #E2E8F0',
+    padding: '0.75rem 1.5rem',
+    borderRadius: '12px',
+    fontWeight: '700',
+    fontSize: '0.9rem',
+    cursor: 'pointer',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.02)',
+    transition: '0.2s'
+  },
+  calendarCardBoard: {
+    backgroundColor: 'white',
+    padding: '2.5rem',
+    borderRadius: '28px',
+    boxShadow: '0 12px 40px rgba(30, 58, 138, 0.04)',
+    border: '1px solid #E2E8F0'
+  },
+  calendarControlHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '2rem'
+  },
+  btnControlGroup: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '1.5rem'
+  },
+  navArrowBtn: {
+    backgroundColor: '#F1F5F9',
+    border: 'none',
+    width: '38px',
+    height: '38px',
+    borderRadius: '10px',
+    fontSize: '1rem',
+    fontWeight: '800',
+    color: '#475569',
+    cursor: 'pointer',
+    transition: '0.2s'
+  },
+  monthDisplayLabel: {
+    fontSize: '1.5rem',
+    fontWeight: '900',
+    color: '#1E3A8A',
+    margin: 0,
+    minWidth: '160px',
+    textAlign: 'center'
+  },
+  btnTodayBack: {
+    backgroundColor: '#EEF2F6',
+    color: '#1E3A8A',
+    border: 'none',
+    padding: '0.6rem 1.25rem',
+    borderRadius: '10px',
+    fontWeight: '700',
+    fontSize: '0.85rem',
+    cursor: 'pointer'
+  },
+  daysOfWeekGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(7, 1fr)',
+    textAlign: 'center',
+    marginBottom: '1rem',
+    borderBottom: '1px solid #F1F5F9',
+    paddingBottom: '0.75rem'
+  },
+  dayWeekLabel: {
+    fontSize: '0.95rem',
+    fontWeight: '800',
+    color: '#475569'
+  },
+  calendarGridCells: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(7, 1fr)',
+    gap: '0.85rem'
+  },
+  calendarCellEmpty: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: '16px',
+    minHeight: '120px',
+    opacity: 0.4
+  },
+  calendarCellActive: {
+    border: '1px solid #EEF2F6',
+    borderRadius: '16px',
+    padding: '0.75rem',
+    minHeight: '130px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.5rem',
+    transition: 'all 0.2s ease'
+  },
+  cellDayNumber: {
+    fontSize: '0.95rem',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center'
+  },
+  todayIndicator: {
+    backgroundColor: '#3B82F6',
+    color: 'white',
+    fontSize: '0.65rem',
+    padding: '0.15rem 0.5rem',
+    borderRadius: '6px',
+    fontWeight: '700'
+  },
+  cellTaskContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.4rem',
+    flexGrow: 1,
+    overflowY: 'auto'
+  },
+  // DESIGN BADGE BARU: MENAMPILKAN BALOK TEKS AGENDA SECARA UTUH DAN MEWAH
+  taskMiniBadge: {
+    padding: '0.35rem 0.6rem',
+    borderRadius: '8px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.1rem',
+    boxShadow: '0 2px 6px rgba(0,0,0,0.01)',
+    transition: '0.15s'
+  },
+  taskMiniTitle: {
+    fontSize: '0.75rem',
+    fontWeight: '800',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis'
+  },
+  taskMiniTime: {
+    fontSize: '0.65rem',
+    opacity: 0.7,
+    fontWeight: '600'
+  }
+};
+
+export default Calendar;

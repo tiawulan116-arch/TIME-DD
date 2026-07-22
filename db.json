@@ -1,0 +1,24 @@
+{
+  "tasks": [
+    {
+      "title": "akuntasi SI",
+      "category": "Kuliah",
+      "time": "2026-07-16 (11:40 - 13:40)",
+      "id": "gIey8mA22qE"
+    }
+  ],
+  "users": [
+    {
+      "id": "0Ui93p0UgUs",
+      "name": "wulan",
+      "email": "wulan@gmail.com",
+      "password": "tiawulan10"
+    }
+  ],
+  "currentUser": {
+    "id": "1",
+    "name": "wulan",
+    "email": "wulan@gmail.com"
+  },
+  "$schema": "./node_modules/json-server/schema.json"
+}
